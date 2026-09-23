@@ -106,6 +106,26 @@ npm test
 npm run build
 ```
 
+## Deployment ke Easypanel
+
+Repository menyediakan `Dockerfile` production. Container menjalankan migration secara otomatis sebelum Next.js dimulai. Buat service PostgreSQL dan App dalam project Easypanel yang sama, lalu gunakan internal connection URL PostgreSQL sebagai `DATABASE_URL` App.
+
+Konfigurasi App yang dibutuhkan:
+
+- Source: GitHub, repository `7vilanata/cs-syarihub`, branch `main`, build path `/`;
+- Builder: Dockerfile, path `Dockerfile`;
+- Target port domain: `3000`;
+- Environment: `DATABASE_URL`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`, `SESSION_SECRET`, dan `N8N_INGEST_TOKEN`;
+- Health/runtime process: container menjalankan `node scripts/migrate.mjs && node server.js`.
+
+Untuk memuat data contoh pertama kali, buka Shell App setelah deployment dan jalankan:
+
+```bash
+node scripts/seed.mjs
+```
+
+Jangan jalankan seed pada database produksi yang sudah berisi perubahan status CS karena seed akan mengembalikan 12 record contoh ke kondisi awal.
+
 ## Struktur penting
 
 - `db/migrations/001_create_conversations.sql` — schema PostgreSQL dengan tepat 13 kolom bisnis.

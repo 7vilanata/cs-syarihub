@@ -6,6 +6,7 @@ import { id } from "date-fns/locale";
 import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDashed, FilterX, LogOut, MessageCircleMore, Phone, Search, Sparkles, UserX, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import type { Conversation, ConversationStatus, Priority } from "@/db/schema";
+import { calculateConversionRate } from "@/lib/metrics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Toaster } from "@/components/ui/sonner";
@@ -66,8 +67,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
   const metrics = useMemo(() => {
     const count = (wanted: ConversationStatus) => conversations.filter((item) => item.status === wanted).length;
     const converted = count("converted"); const closed = count("closed"); const notALead = count("not_a_lead");
-    const finalOutcomes = converted + closed + notALead;
-    return { total: conversations.length, pending: count("pending"), actioned: count("actioned"), converted, closed, notALead, rate: finalOutcomes ? Math.round((converted / finalOutcomes) * 100) : 0 };
+    return { total: conversations.length, pending: count("pending"), actioned: count("actioned"), converted, closed, notALead, rate: calculateConversionRate({ converted, closed, notALead }) };
   }, [conversations]);
 
   const filtered = useMemo(() => {
@@ -114,7 +114,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
 
     <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <section aria-label="Ringkasan performa" className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
-        <MetricCard label="Total" value={metrics.total} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Converted ÷ hasil final" tone="green" icon={<ArrowUpRight className="size-5" />} />
+        <MetricCard label="Total" value={metrics.total} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Not a Lead dikecualikan" tone="green" icon={<ArrowUpRight className="size-5" />} />
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/5%)]">

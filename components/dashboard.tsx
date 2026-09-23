@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { ArrowUpRight, CheckCircle2, ChevronDown, CircleDashed, FilterX, LogOut, MessageCircleMore, Phone, Search, Sparkles, UsersRound } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDashed, FilterX, LogOut, MessageCircleMore, Phone, Search, Sparkles, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import type { Conversation, ConversationStatus, Priority } from "@/db/schema";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
   const [status, setStatus] = useState("all"); const [priority, setPriority] = useState("all");
   const [stage, setStage] = useState("all"); const [sender, setSender] = useState("all");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(20);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{ conversation: Conversation; status: ConversationStatus } | null>(null);
 
@@ -78,8 +79,12 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
     });
   }, [conversations, search, status, priority, stage, sender, from, to]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const paginated = filtered.slice(pageStart, pageStart + pageSize);
   const activeFilters = [status, priority, stage, sender].filter((value) => value !== "all").length + Number(Boolean(from)) + Number(Boolean(to));
-  const clearFilters = () => { setSearch(""); setStatus("all"); setPriority("all"); setStage("all"); setSender("all"); setFrom(""); setTo(""); };
+  const clearFilters = () => { setSearch(""); setStatus("all"); setPriority("all"); setStage("all"); setSender("all"); setFrom(""); setTo(""); setPage(1); };
 
   async function persistStatus(conversation: Conversation, nextStatus: ConversationStatus) {
     if (conversation.status === nextStatus) return;
@@ -112,14 +117,26 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/5%)]">
         <div className="border-b border-slate-200 p-4 sm:p-5"><div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div className="relative min-w-64 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama, nomor HP, atau ID conversation" className="h-10 pl-9" /></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex"><FilterSelect label="Status" value={status} setValue={setStatus} options={labels.status} /><FilterSelect label="Prioritas" value={priority} setValue={setPriority} options={labels.priority} /><FilterSelect label="Stage" value={stage} setValue={setStage} options={labels.stage} /><FilterSelect label="Pengirim" value={sender} setValue={setSender} options={labels.sender} /></div>
-        </div><div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs font-semibold text-slate-500">Dari tanggal<Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 h-9 w-auto text-sm" /></label><label className="text-xs font-semibold text-slate-500">Sampai tanggal<Input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 h-9 w-auto text-sm" /></label>{(activeFilters > 0 || search) && <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-600"><FilterX className="size-4" />Reset filter</Button>}<p className="ml-auto text-sm font-semibold text-slate-500">{filtered.length} dari {conversations.length} conversation</p></div></div>
-        {filtered.length === 0 ? <div className="grid min-h-72 place-items-center p-8 text-center"><div><FilterX className="mx-auto size-8 text-slate-300" /><h2 className="mt-3 font-bold">Tidak ada conversation</h2><p className="mt-1 text-sm text-slate-500">Coba ubah pencarian atau filter yang aktif.</p><Button variant="outline" className="mt-4" onClick={clearFilters}>Reset filter</Button></div></div> : <><div className="hidden overflow-x-auto lg:block"><ConversationTable conversations={filtered} savingId={savingId} onStatus={requestStatus} /></div><div className="divide-y divide-slate-200 lg:hidden">{filtered.map((conversation) => <ConversationCard key={conversation.id} conversation={conversation} savingId={savingId} onStatus={requestStatus} />)}</div></>}
+          <div className="relative min-w-64 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Cari nama, nomor HP, atau ID conversation" className="h-10 pl-9" /></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex"><FilterSelect label="Status" value={status} setValue={(value) => { setStatus(value); setPage(1); }} options={labels.status} /><FilterSelect label="Prioritas" value={priority} setValue={(value) => { setPriority(value); setPage(1); }} options={labels.priority} /><FilterSelect label="Stage" value={stage} setValue={(value) => { setStage(value); setPage(1); }} options={labels.stage} /><FilterSelect label="Pengirim" value={sender} setValue={(value) => { setSender(value); setPage(1); }} options={labels.sender} /></div>
+        </div><div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs font-semibold text-slate-500">Dari tanggal<Input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className="mt-1 h-9 w-auto text-sm" /></label><label className="text-xs font-semibold text-slate-500">Sampai tanggal<Input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} className="mt-1 h-9 w-auto text-sm" /></label>{(activeFilters > 0 || search) && <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-600"><FilterX className="size-4" />Reset filter</Button>}<p className="ml-auto text-sm font-semibold text-slate-500">{filtered.length} dari {conversations.length} conversation</p></div></div>
+        {filtered.length === 0 ? <div className="grid min-h-72 place-items-center p-8 text-center"><div><FilterX className="mx-auto size-8 text-slate-300" /><h2 className="mt-3 font-bold">Tidak ada conversation</h2><p className="mt-1 text-sm text-slate-500">Coba ubah pencarian atau filter yang aktif.</p><Button variant="outline" className="mt-4" onClick={clearFilters}>Reset filter</Button></div></div> : <><div className="hidden overflow-x-auto lg:block"><ConversationTable conversations={paginated} savingId={savingId} onStatus={requestStatus} /></div><div className="divide-y divide-slate-200 lg:hidden">{paginated.map((conversation) => <ConversationCard key={conversation.id} conversation={conversation} savingId={savingId} onStatus={requestStatus} />)}</div><Pagination currentPage={currentPage} totalPages={totalPages} pageSize={pageSize} start={pageStart + 1} end={Math.min(pageStart + pageSize, filtered.length)} total={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} /></>}
       </section>
     </main>
 
     <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => { if (!open && !savingId) setConfirmation(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ubah status menjadi {confirmation ? labels.status[confirmation.status] : ""}?</AlertDialogTitle><AlertDialogDescription>{confirmation?.status === "converted" ? "Pastikan pembayaran sudah diterima dan terverifikasi." : "Conversation akan dianggap selesai tanpa conversion."} Tindakan ini tetap dapat diubah kembali secara manual.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={Boolean(savingId)}>Batal</AlertDialogCancel><AlertDialogAction disabled={Boolean(savingId)} onClick={(event) => { event.preventDefault(); if (confirmation) void persistStatus(confirmation.conversation, confirmation.status); }}>{savingId ? "Menyimpan…" : "Ya, ubah status"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Toaster richColors position="top-right" />
+  </div>;
+}
+
+function Pagination({ currentPage, totalPages, pageSize, start, end, total, onPageChange, onPageSizeChange }: { currentPage: number; totalPages: number; pageSize: number; start: number; end: number; total: number; onPageChange: (page: number) => void; onPageSizeChange: (size: number) => void }) {
+  return <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <p className="text-sm text-slate-500">Menampilkan <span className="font-semibold text-slate-700">{start}–{end}</span> dari <span className="font-semibold text-slate-700">{total}</span></p>
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-slate-500">Per halaman<Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}><SelectTrigger aria-label="Jumlah conversation per halaman" className="h-9 w-[72px] bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="10">10</SelectItem><SelectItem value="20">20</SelectItem><SelectItem value="50">50</SelectItem></SelectContent></Select></label>
+      <span className="min-w-[96px] text-center text-sm font-semibold text-slate-600">Halaman {currentPage} dari {totalPages}</span>
+      <Button type="button" variant="outline" size="sm" aria-label="Halaman sebelumnya" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)}><ChevronLeft className="size-4" /><span className="hidden sm:inline">Sebelumnya</span></Button>
+      <Button type="button" variant="outline" size="sm" aria-label="Halaman berikutnya" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)}><span className="hidden sm:inline">Berikutnya</span><ChevronRight className="size-4" /></Button>
+    </div>
   </div>;
 }
 

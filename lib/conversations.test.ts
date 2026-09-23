@@ -3,7 +3,6 @@ import { ingestSchema, resolveStatusAfterSync, statusSchema } from "./conversati
 
 const payload = {
   conversation_id: "928391",
-  conversation_url: "https://omnichannel.example.com/conversations/928391",
   contact_name: "Aisyah",
   contact_phone: "+62 811 0000 1001",
   last_message_at: "2026-09-23T08:30:00.000Z",
@@ -21,6 +20,7 @@ describe("validasi ingest", () => {
   it("menolak enum dan field tambahan", () => {
     expect(ingestSchema.safeParse({ ...payload, priority: "critical" }).success).toBe(false);
     expect(ingestSchema.safeParse({ ...payload, status: "converted" }).success).toBe(false);
+    expect(ingestSchema.safeParse({ ...payload, conversation_url: "https://example.com/chat/928391" }).success).toBe(false);
   });
   it("menggunakan blocker none bila tidak dikirim", () => {
     const withoutBlocker = { ...payload, blocker: undefined };

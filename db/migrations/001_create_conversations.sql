@@ -14,7 +14,6 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id TEXT NOT NULL UNIQUE,
-  conversation_url TEXT NOT NULL,
   contact_name TEXT,
   last_message_at TIMESTAMPTZ NOT NULL,
   last_message_sender last_message_sender NOT NULL,

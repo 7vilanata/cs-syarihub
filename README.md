@@ -1,6 +1,6 @@
 # Syarihub CS Conversion Dashboard
 
-Dashboard internal untuk memprioritaskan conversation akuisisi dari hasil analisis n8n, membuka chat asli di omnichannel, dan mencatat hasil follow-up hingga pembayaran.
+Dashboard internal untuk memprioritaskan conversation akuisisi dari hasil analisis n8n dan mencatat hasil follow-up hingga pembayaran.
 
 ## Fitur MVP
 
@@ -70,7 +70,6 @@ curl -X POST http://localhost:3000/api/conversations/upsert \
   -H "Content-Type: application/json" \
   -d '{
     "conversation_id": "928391",
-    "conversation_url": "https://omnichannel.example.com/conversations/928391",
     "contact_name": "Aisyah",
     "contact_phone": "+62 811 0000 1001",
     "last_message_at": "2026-09-23T08:30:00.000Z",

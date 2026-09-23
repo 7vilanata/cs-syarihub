@@ -16,7 +16,6 @@ export type ConversationStatus = (typeof statuses)[number];
 export type Conversation = {
   id: string;
   conversation_id: string;
-  conversation_url: string;
   contact_name: string | null;
   contact_phone: string | null;
   last_message_at: string;

@@ -5,6 +5,7 @@ const payload = {
   conversation_id: "928391",
   conversation_url: "https://omnichannel.example.com/conversations/928391",
   contact_name: "Aisyah",
+  contact_phone: "+62 811 0000 1001",
   last_message_at: "2026-09-23T08:30:00.000Z",
   last_message_sender: "customer",
   summary: "Menanyakan cara pembayaran.",

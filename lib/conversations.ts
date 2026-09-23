@@ -11,6 +11,7 @@ export const ingestSchema = z.object({
   conversation_id: z.string().trim().min(1).max(255),
   conversation_url: z.string().url().max(2048),
   contact_name: z.string().trim().max(255).nullable().optional().default(null),
+  contact_phone: z.string().trim().min(7).max(30).nullable().optional().default(null),
   last_message_at: isoDateTime,
   last_message_sender: z.enum(lastMessageSenders),
   summary: z.string().trim().min(1).max(5000),
@@ -32,7 +33,7 @@ export function resolveStatusAfterSync(currentStatus: ConversationStatus, oldDat
 export async function listConversations(): Promise<Conversation[]> {
   const sql = getDb();
   const rows = await sql<Conversation[]>`
-    SELECT id, conversation_id, conversation_url, contact_name,
+    SELECT id, conversation_id, conversation_url, contact_name, contact_phone,
            last_message_at::text, last_message_sender, summary, stage, blocker,
            priority, next_action, status, analyzed_at::text
     FROM conversations
@@ -47,16 +48,17 @@ export async function upsertConversation(payload: IngestPayload) {
   const sql = getDb();
   const rows = await sql<{ inserted: boolean }[]>`
     INSERT INTO conversations (
-      conversation_id, conversation_url, contact_name, last_message_at,
+      conversation_id, conversation_url, contact_name, contact_phone, last_message_at,
       last_message_sender, summary, stage, blocker, priority, next_action, analyzed_at
     ) VALUES (
-      ${payload.conversation_id}, ${payload.conversation_url}, ${payload.contact_name},
+      ${payload.conversation_id}, ${payload.conversation_url}, ${payload.contact_name}, ${payload.contact_phone},
       ${payload.last_message_at}, ${payload.last_message_sender}, ${payload.summary},
       ${payload.stage}, ${payload.blocker}, ${payload.priority}, ${payload.next_action}, ${payload.analyzed_at}
     )
     ON CONFLICT (conversation_id) DO UPDATE SET
       conversation_url = EXCLUDED.conversation_url,
       contact_name = EXCLUDED.contact_name,
+      contact_phone = EXCLUDED.contact_phone,
       last_message_at = EXCLUDED.last_message_at,
       last_message_sender = EXCLUDED.last_message_sender,
       summary = EXCLUDED.summary,

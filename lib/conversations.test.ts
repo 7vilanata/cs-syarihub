@@ -35,6 +35,7 @@ describe("aturan sinkronisasi status", () => {
   it("mempertahankan status final", () => {
     expect(resolveStatusAfterSync("converted", oldDate, newerDate, "customer")).toBe("converted");
     expect(resolveStatusAfterSync("closed", oldDate, newerDate, "customer")).toBe("closed");
+    expect(resolveStatusAfterSync("not_a_lead", oldDate, newerDate, "customer")).toBe("not_a_lead");
   });
   it("mempertahankan actioned untuk pesan CS", () => { expect(resolveStatusAfterSync("actioned", oldDate, newerDate, "cs")).toBe("actioned"); });
 });
@@ -42,6 +43,7 @@ describe("aturan sinkronisasi status", () => {
 describe("status manual", () => {
   it("hanya menerima status yang didukung", () => {
     expect(statusSchema.safeParse({ status: "converted" }).success).toBe(true);
+    expect(statusSchema.safeParse({ status: "not_a_lead" }).success).toBe(true);
     expect(statusSchema.safeParse({ status: "paid" }).success).toBe(false);
   });
 });

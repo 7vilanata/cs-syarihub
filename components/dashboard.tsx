@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDashed, FilterX, LogOut, MessageCircleMore, Phone, Search, Sparkles, UsersRound } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDashed, FilterX, LogOut, MessageCircleMore, Phone, Search, Sparkles, UserX, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import type { Conversation, ConversationStatus, Priority } from "@/db/schema";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const labels = {
-  status: { pending: "Pending", actioned: "Ditindaklanjuti", converted: "Converted", closed: "Closed" },
+  status: { pending: "Pending", actioned: "Ditindaklanjuti", converted: "Converted", closed: "Closed", not_a_lead: "Not a Lead" },
   priority: { urgent: "Urgent", high: "High", medium: "Medium", low: "Low" },
   stage: { new: "Baru", interested: "Tertarik", considering: "Mempertimbangkan", ready_to_pay: "Siap bayar" },
   sender: { customer: "Customer", cs: "CS", system: "Sistem" },
@@ -30,6 +30,7 @@ const priorityClass: Record<Priority, string> = {
 const statusClass: Record<ConversationStatus, string> = {
   pending: "bg-blue-50 text-blue-700", actioned: "bg-violet-50 text-violet-700",
   converted: "bg-emerald-50 text-emerald-700", closed: "bg-slate-100 text-slate-600",
+  not_a_lead: "bg-rose-50 text-rose-700",
 };
 
 function Badge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -64,8 +65,9 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
 
   const metrics = useMemo(() => {
     const count = (wanted: ConversationStatus) => conversations.filter((item) => item.status === wanted).length;
-    const converted = count("converted"); const closed = count("closed");
-    return { total: conversations.length, pending: count("pending"), actioned: count("actioned"), converted, closed, rate: converted + closed ? Math.round((converted / (converted + closed)) * 100) : 0 };
+    const converted = count("converted"); const closed = count("closed"); const notALead = count("not_a_lead");
+    const finalOutcomes = converted + closed + notALead;
+    return { total: conversations.length, pending: count("pending"), actioned: count("actioned"), converted, closed, notALead, rate: finalOutcomes ? Math.round((converted / finalOutcomes) * 100) : 0 };
   }, [conversations]);
 
   const filtered = useMemo(() => {
@@ -100,7 +102,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
   }
 
   function requestStatus(conversation: Conversation, nextStatus: ConversationStatus) {
-    if (nextStatus === "converted" || nextStatus === "closed") setConfirmation({ conversation, status: nextStatus });
+    if (nextStatus === "converted" || nextStatus === "closed" || nextStatus === "not_a_lead") setConfirmation({ conversation, status: nextStatus });
     else void persistStatus(conversation, nextStatus);
   }
 
@@ -111,8 +113,8 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
     </div></header>
 
     <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <section aria-label="Ringkasan performa" className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <MetricCard label="Total" value={metrics.total} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} icon={<ChevronDown className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Converted ÷ hasil final" tone="green" icon={<ArrowUpRight className="size-5" />} />
+      <section aria-label="Ringkasan performa" className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
+        <MetricCard label="Total" value={metrics.total} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Converted ÷ hasil final" tone="green" icon={<ArrowUpRight className="size-5" />} />
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/5%)]">
@@ -124,7 +126,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
       </section>
     </main>
 
-    <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => { if (!open && !savingId) setConfirmation(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ubah status menjadi {confirmation ? labels.status[confirmation.status] : ""}?</AlertDialogTitle><AlertDialogDescription>{confirmation?.status === "converted" ? "Pastikan pembayaran sudah diterima dan terverifikasi." : "Conversation akan dianggap selesai tanpa conversion."} Tindakan ini tetap dapat diubah kembali secara manual.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={Boolean(savingId)}>Batal</AlertDialogCancel><AlertDialogAction disabled={Boolean(savingId)} onClick={(event) => { event.preventDefault(); if (confirmation) void persistStatus(confirmation.conversation, confirmation.status); }}>{savingId ? "Menyimpan…" : "Ya, ubah status"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Toaster richColors position="top-right" />
+    <AlertDialog open={Boolean(confirmation)} onOpenChange={(open) => { if (!open && !savingId) setConfirmation(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ubah status menjadi {confirmation ? labels.status[confirmation.status] : ""}?</AlertDialogTitle><AlertDialogDescription>{confirmation?.status === "converted" ? "Pastikan pembayaran sudah diterima dan terverifikasi." : confirmation?.status === "not_a_lead" ? "Pastikan conversation ini memang bukan calon user yang relevan." : "Conversation akan dianggap selesai tanpa conversion."} Tindakan ini tetap dapat diubah kembali secara manual.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={Boolean(savingId)}>Batal</AlertDialogCancel><AlertDialogAction disabled={Boolean(savingId)} onClick={(event) => { event.preventDefault(); if (confirmation) void persistStatus(confirmation.conversation, confirmation.status); }}>{savingId ? "Menyimpan…" : "Ya, ubah status"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Toaster richColors position="top-right" />
   </div>;
 }
 

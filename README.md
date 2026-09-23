@@ -4,10 +4,10 @@ Dashboard internal untuk memprioritaskan conversation akuisisi dari hasil analis
 
 ## Fitur MVP
 
-- metrik total, pending, ditindaklanjuti, converted, closed, dan conversion rate;
+- metrik total, pending, ditindaklanjuti, converted, closed, not a lead, dan conversion rate;
 - daftar conversation dengan sorting prioritas lalu waktu pesan terbaru;
 - pencarian nama/ID serta filter status, priority, stage, pengirim, dan rentang tanggal;
-- update status dengan konfirmasi untuk `converted` dan `closed`;
+- update status dengan konfirmasi untuk `converted`, `closed`, dan `not_a_lead`;
 - endpoint ingest n8n dengan Bearer token, validasi Zod, dan upsert idempoten;
 - status manual tidak ditimpa sinkronisasi; `actioned` kembali ke `pending` hanya untuk pesan customer yang lebih baru;
 - login internal berbasis environment variable dan signed HTTP-only cookie;
@@ -129,7 +129,7 @@ Jangan jalankan seed pada database produksi yang sudah berisi perubahan status C
 
 ## Struktur penting
 
-- `db/migrations/001_create_conversations.sql` — schema PostgreSQL dengan tepat 13 kolom bisnis.
+- `db/migrations/` — schema PostgreSQL dan perubahan enum status.
 - `scripts/seed.mjs` — 12 conversation sintetis.
 - `app/api/conversations/upsert/route.ts` — endpoint ingest n8n.
 - `app/api/conversations/[id]/status/route.ts` — update status manual.

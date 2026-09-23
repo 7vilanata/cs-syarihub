@@ -5,7 +5,7 @@ export const blockers = [
   "needs_approval", "trust", "unresponsive", "other",
 ] as const;
 export const priorities = ["urgent", "high", "medium", "low"] as const;
-export const statuses = ["pending", "actioned", "converted", "closed"] as const;
+export const statuses = ["pending", "actioned", "converted", "closed", "not_a_lead"] as const;
 
 export type LastMessageSender = (typeof lastMessageSenders)[number];
 export type Stage = (typeof stages)[number];

@@ -6,6 +6,7 @@ const payload = {
   conversation_url: "https://omnichannel.example.com/conversations/928391",
   contact_name: "Aisyah",
   contact_phone: "+62 811 0000 1001",
+  created_at: "2026-09-23T07:45:00.000Z",
   last_message_at: "2026-09-23T08:30:00.000Z",
   last_message_sender: "customer",
   summary: "Menanyakan cara pembayaran.",
@@ -26,6 +27,9 @@ describe("validasi ingest", () => {
   it("menggunakan blocker none bila tidak dikirim", () => {
     const withoutBlocker = { ...payload, blocker: undefined };
     expect(ingestSchema.parse(withoutBlocker).blocker).toBe("none");
+  });
+  it("mewajibkan waktu conversation pertama dimulai", () => {
+    expect(ingestSchema.safeParse({ ...payload, created_at: undefined }).success).toBe(false);
   });
 });
 

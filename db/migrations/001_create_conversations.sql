@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   conversation_id TEXT NOT NULL UNIQUE,
   conversation_url TEXT NOT NULL,
   contact_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL,
   last_message_at TIMESTAMPTZ NOT NULL,
   last_message_sender last_message_sender NOT NULL,
   summary TEXT NOT NULL,

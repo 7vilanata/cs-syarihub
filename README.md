@@ -6,7 +6,7 @@ Dashboard internal untuk memprioritaskan conversation akuisisi dari hasil analis
 
 - metrik total, pending, ditindaklanjuti, converted, closed, not a lead, dan conversion rate yang mengikuti filter tanggal serta dapat diklik sebagai shortcut filter status;
 - daftar conversation dengan sorting prioritas lalu waktu pesan terbaru;
-- pencarian nama/ID serta filter status, priority, stage, pengirim, dan rentang tanggal;
+- pencarian nama/ID serta filter status, priority, stage, pengirim, dan rentang tanggal mulai conversation (`created_at`);
 - update status dengan konfirmasi untuk `converted`, `closed`, dan `not_a_lead`;
 - endpoint ingest n8n dengan Bearer token, validasi Zod, dan upsert idempoten;
 - status manual tidak ditimpa sinkronisasi; `actioned` kembali ke `pending` hanya untuk pesan customer yang lebih baru;
@@ -73,6 +73,7 @@ curl -X POST http://localhost:3000/api/conversations/upsert \
     "conversation_url": "https://omnichannel.example.com/conversations/928391",
     "contact_name": "Aisyah",
     "contact_phone": "+62 811 0000 1001",
+    "created_at": "2026-09-23T07:45:00.000Z",
     "last_message_at": "2026-09-23T08:30:00.000Z",
     "last_message_sender": "customer",
     "summary": "Calon user sudah memahami program dan menanyakan cara pembayaran.",
@@ -85,6 +86,8 @@ curl -X POST http://localhost:3000/api/conversations/upsert \
 ```
 
 Respons berhasil berisi `action: "created"` atau `action: "updated"`. Payload tidak menerima `status`; status hanya diubah CS melalui dashboard.
+
+`created_at` adalah waktu conversation pertama dimulai dan menjadi dasar filter tanggal serta metrik. `last_message_at` tetap dipakai untuk aktivitas terakhir, urutan antrean, dan aturan pesan customer terbaru. Saat sinkronisasi ulang, aplikasi mempertahankan nilai `created_at` yang paling awal.
 
 ### Konfigurasi HTTP Request node n8n
 

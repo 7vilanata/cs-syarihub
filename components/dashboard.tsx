@@ -68,7 +68,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
   const [confirmation, setConfirmation] = useState<{ conversation: Conversation; status: ConversationStatus } | null>(null);
   const listRef = useRef<HTMLElement>(null);
 
-  const dateFiltered = useMemo(() => conversations.filter((item) => isWithinDateRange(item.last_message_at, from, to)), [conversations, from, to]);
+  const dateFiltered = useMemo(() => conversations.filter((item) => isWithinDateRange(item.created_at, from, to)), [conversations, from, to]);
 
   const metrics = useMemo(() => {
     const count = (wanted: ConversationStatus) => dateFiltered.filter((item) => item.status === wanted).length;

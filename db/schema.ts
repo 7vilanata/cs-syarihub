@@ -19,6 +19,7 @@ export type Conversation = {
   conversation_url: string | null;
   contact_name: string | null;
   contact_phone: string | null;
+  created_at: string;
   last_message_at: string;
   last_message_sender: LastMessageSender;
   summary: string;

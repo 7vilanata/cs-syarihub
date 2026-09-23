@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDashed, FilterX, LogOut, MessageCircleMore, Phone, Search, Sparkles, UserX, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import type { Conversation, ConversationStatus, Priority } from "@/db/schema";
-import { calculateConversionRate } from "@/lib/metrics";
+import { calculateConversionRate, isWithinDateRange } from "@/lib/metrics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Toaster } from "@/components/ui/sonner";
@@ -20,6 +20,8 @@ const labels = {
   sender: { customer: "Customer", cs: "CS", system: "Sistem" },
   blocker: { none: "Tidak ada", price: "Harga", schedule: "Jadwal", payment_method: "Metode bayar", needs_more_information: "Butuh info", needs_approval: "Butuh persetujuan", trust: "Kepercayaan", unresponsive: "Tidak merespons", other: "Lainnya" },
 } as const;
+
+type MetricFilter = ConversationStatus | "all" | "conversion_rate";
 
 const priorityClass: Record<Priority, string> = {
   urgent: "border-red-200 bg-red-50 text-red-700 ring-1 ring-red-100",
@@ -47,11 +49,11 @@ function StatusSelect({ conversation, onChange, disabled }: { conversation: Conv
   </Select>;
 }
 
-function MetricCard({ label, value, note, tone = "default", icon }: { label: string; value: string | number; note?: string; tone?: "default" | "green"; icon: React.ReactNode }) {
-  return <div className={`rounded-2xl border p-5 shadow-[0_1px_2px_rgb(15_23_42/4%)] ${tone === "green" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white"}`}>
+function MetricCard({ label, value, note, tone = "default", icon, active, onClick }: { label: string; value: string | number; note?: string; tone?: "default" | "green"; icon: React.ReactNode; active: boolean; onClick: () => void }) {
+  return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-2xl border p-5 text-left shadow-[0_1px_2px_rgb(15_23_42/4%)] transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 ${tone === "green" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white"} ${active ? "ring-2 ring-teal-500 ring-offset-2" : ""}`}>
     <div className="flex items-start justify-between gap-3"><p className={`text-sm font-semibold ${tone === "green" ? "text-teal-50" : "text-slate-500"}`}>{label}</p><span className={tone === "green" ? "text-teal-100" : "text-teal-700"}>{icon}</span></div>
     <p className="mt-3 text-3xl font-black tracking-tight">{value}</p>{note && <p className={`mt-1 text-xs ${tone === "green" ? "text-teal-100" : "text-slate-500"}`}>{note}</p>}
-  </div>;
+  </button>;
 }
 
 export function Dashboard({ initialConversations }: { initialConversations: Conversation[] }) {
@@ -61,32 +63,45 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
   const [stage, setStage] = useState("all"); const [sender, setSender] = useState("all");
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(20);
+  const [activeMetric, setActiveMetric] = useState<MetricFilter>("all");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{ conversation: Conversation; status: ConversationStatus } | null>(null);
+  const listRef = useRef<HTMLElement>(null);
+
+  const dateFiltered = useMemo(() => conversations.filter((item) => isWithinDateRange(item.last_message_at, from, to)), [conversations, from, to]);
 
   const metrics = useMemo(() => {
-    const count = (wanted: ConversationStatus) => conversations.filter((item) => item.status === wanted).length;
+    const count = (wanted: ConversationStatus) => dateFiltered.filter((item) => item.status === wanted).length;
     const converted = count("converted"); const closed = count("closed"); const notALead = count("not_a_lead");
-    return { total: conversations.length, pending: count("pending"), actioned: count("actioned"), converted, closed, notALead, rate: calculateConversionRate({ converted, closed, notALead }) };
-  }, [conversations]);
+    return { total: dateFiltered.length, pending: count("pending"), actioned: count("actioned"), converted, closed, notALead, rate: calculateConversionRate({ converted, closed, notALead }) };
+  }, [dateFiltered]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return conversations.filter((item) => {
-      const timestamp = new Date(item.last_message_at).getTime();
+    return dateFiltered.filter((item) => {
       return (!term || item.conversation_id.toLowerCase().includes(term) || item.contact_name?.toLowerCase().includes(term) || item.contact_phone?.toLowerCase().includes(term)) &&
         (status === "all" || item.status === status) && (priority === "all" || item.priority === priority) &&
-        (stage === "all" || item.stage === stage) && (sender === "all" || item.last_message_sender === sender) &&
-        (!from || timestamp >= new Date(`${from}T00:00:00`).getTime()) && (!to || timestamp <= new Date(`${to}T23:59:59.999`).getTime());
+        (stage === "all" || item.stage === stage) && (sender === "all" || item.last_message_sender === sender);
     });
-  }, [conversations, search, status, priority, stage, sender, from, to]);
+  }, [dateFiltered, search, status, priority, stage, sender]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * pageSize;
   const paginated = filtered.slice(pageStart, pageStart + pageSize);
   const activeFilters = [status, priority, stage, sender].filter((value) => value !== "all").length + Number(Boolean(from)) + Number(Boolean(to));
-  const clearFilters = () => { setSearch(""); setStatus("all"); setPriority("all"); setStage("all"); setSender("all"); setFrom(""); setTo(""); setPage(1); };
+  const clearFilters = () => { setSearch(""); setStatus("all"); setPriority("all"); setStage("all"); setSender("all"); setFrom(""); setTo(""); setPage(1); setActiveMetric("all"); };
+
+  function applyMetricFilter(nextStatus: ConversationStatus | "all", metric: MetricFilter = nextStatus) {
+    setSearch("");
+    setStatus(nextStatus);
+    setPriority("all");
+    setStage("all");
+    setSender("all");
+    setPage(1);
+    setActiveMetric(metric);
+    listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   async function persistStatus(conversation: Conversation, nextStatus: ConversationStatus) {
     if (conversation.status === nextStatus) return;
@@ -114,13 +129,13 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
 
     <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <section aria-label="Ringkasan performa" className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
-        <MetricCard label="Total" value={metrics.total} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Not a Lead dikecualikan" tone="green" icon={<ArrowUpRight className="size-5" />} />
+        <MetricCard label="Total" value={metrics.total} active={activeMetric === "all"} onClick={() => applyMetricFilter("all")} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} active={activeMetric === "pending"} onClick={() => applyMetricFilter("pending")} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} active={activeMetric === "actioned"} onClick={() => applyMetricFilter("actioned")} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} active={activeMetric === "converted"} onClick={() => applyMetricFilter("converted")} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} active={activeMetric === "closed"} onClick={() => applyMetricFilter("closed")} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} active={activeMetric === "not_a_lead"} onClick={() => applyMetricFilter("not_a_lead")} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Klik untuk lihat Converted" tone="green" active={activeMetric === "conversion_rate"} onClick={() => applyMetricFilter("converted", "conversion_rate")} icon={<ArrowUpRight className="size-5" />} />
       </section>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/5%)]">
+      <section ref={listRef} className="mt-6 scroll-mt-4 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/5%)]">
         <div className="border-b border-slate-200 p-4 sm:p-5"><div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative min-w-64 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Cari nama, nomor HP, atau ID conversation" className="h-10 pl-9" /></div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex"><FilterSelect label="Status" value={status} setValue={(value) => { setStatus(value); setPage(1); }} options={labels.status} /><FilterSelect label="Prioritas" value={priority} setValue={(value) => { setPriority(value); setPage(1); }} options={labels.priority} /><FilterSelect label="Stage" value={stage} setValue={(value) => { setStage(value); setPage(1); }} options={labels.stage} /><FilterSelect label="Pengirim" value={sender} setValue={(value) => { setSender(value); setPage(1); }} options={labels.sender} /></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex"><FilterSelect label="Status" value={status} setValue={(value) => { setStatus(value); setActiveMetric(value as MetricFilter); setPage(1); }} options={labels.status} /><FilterSelect label="Prioritas" value={priority} setValue={(value) => { setPriority(value); setPage(1); }} options={labels.priority} /><FilterSelect label="Stage" value={stage} setValue={(value) => { setStage(value); setPage(1); }} options={labels.stage} /><FilterSelect label="Pengirim" value={sender} setValue={(value) => { setSender(value); setPage(1); }} options={labels.sender} /></div>
         </div><div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs font-semibold text-slate-500">Dari tanggal<Input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} className="mt-1 h-9 w-auto text-sm" /></label><label className="text-xs font-semibold text-slate-500">Sampai tanggal<Input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} className="mt-1 h-9 w-auto text-sm" /></label>{(activeFilters > 0 || search) && <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-600"><FilterX className="size-4" />Reset filter</Button>}<p className="ml-auto text-sm font-semibold text-slate-500">{filtered.length} dari {conversations.length} conversation</p></div></div>
         {filtered.length === 0 ? <div className="grid min-h-72 place-items-center p-8 text-center"><div><FilterX className="mx-auto size-8 text-slate-300" /><h2 className="mt-3 font-bold">Tidak ada conversation</h2><p className="mt-1 text-sm text-slate-500">Coba ubah pencarian atau filter yang aktif.</p><Button variant="outline" className="mt-4" onClick={clearFilters}>Reset filter</Button></div></div> : <><div className="hidden overflow-x-auto lg:block"><ConversationTable conversations={paginated} savingId={savingId} onStatus={requestStatus} /></div><div className="divide-y divide-slate-200 lg:hidden">{paginated.map((conversation) => <ConversationCard key={conversation.id} conversation={conversation} savingId={savingId} onStatus={requestStatus} />)}</div><Pagination currentPage={currentPage} totalPages={totalPages} pageSize={pageSize} start={pageStart + 1} end={Math.min(pageStart + pageSize, filtered.length)} total={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} /></>}
       </section>

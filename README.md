@@ -4,7 +4,7 @@ Dashboard internal untuk memprioritaskan conversation akuisisi dari hasil analis
 
 ## Fitur MVP
 
-- metrik total, pending, ditindaklanjuti, converted, closed, not a lead, dan conversion rate;
+- metrik total, pending, ditindaklanjuti, converted, closed, not a lead, dan conversion rate yang mengikuti filter tanggal serta dapat diklik sebagai shortcut filter status;
 - daftar conversation dengan sorting prioritas lalu waktu pesan terbaru;
 - pencarian nama/ID serta filter status, priority, stage, pengirim, dan rentang tanggal;
 - update status dengan konfirmasi untuk `converted`, `closed`, dan `not_a_lead`;

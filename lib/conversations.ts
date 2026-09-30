@@ -25,6 +25,9 @@ export const ingestSchema = z.object({
 
 export const statusSchema = z.object({ status: z.enum(statuses) }).strict();
 export type IngestPayload = z.infer<typeof ingestSchema>;
+export type StatusUpdate = Pick<Conversation, "id" | "conversation_id" | "conversation_url" | "contact_name" | "contact_phone" | "status"> & {
+  previous_status: ConversationStatus;
+};
 
 export function resolveStatusAfterSync(currentStatus: ConversationStatus, oldDate: Date, newDate: Date, sender: LastMessageSender) {
   return currentStatus === "actioned" && sender === "customer" && newDate > oldDate
@@ -81,9 +84,15 @@ export async function upsertConversation(payload: IngestPayload) {
 
 export async function updateConversationStatus(id: string, status: ConversationStatus) {
   const sql = getDb();
-  const rows = await sql<{ id: string; status: ConversationStatus }[]>`
-    UPDATE conversations SET status = ${status}
-    WHERE id = ${id} RETURNING id, status
+  const rows = await sql<StatusUpdate[]>`
+    WITH previous AS (
+      SELECT id, status FROM conversations WHERE id = ${id} FOR UPDATE
+    )
+    UPDATE conversations AS c SET status = ${status}
+    FROM previous
+    WHERE c.id = previous.id
+    RETURNING c.id, c.conversation_id, c.conversation_url, c.contact_name,
+              c.contact_phone, previous.status AS previous_status, c.status
   `;
   return rows[0] ?? null;
 }

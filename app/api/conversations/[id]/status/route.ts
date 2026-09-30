@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthenticated } from "@/lib/auth";
 import { statusSchema, updateConversationStatus } from "@/lib/conversations";
+import { sendStatusWebhook } from "@/lib/status-webhook";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!(await isAuthenticated())) {
@@ -15,7 +16,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const updated = await updateConversationStatus(id, parsed.data.status);
     if (!updated) return NextResponse.json({ success: false, error: "Conversation tidak ditemukan." }, { status: 404 });
-    return NextResponse.json({ success: true, conversation: updated });
+    const changed = updated.previous_status !== updated.status;
+    const webhook = changed ? await sendStatusWebhook(updated) : null;
+    return NextResponse.json({ success: true, conversation: updated, changed, webhook });
   } catch {
     return NextResponse.json({ success: false, error: "Status gagal disimpan." }, { status: 500 });
   }

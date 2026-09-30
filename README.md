@@ -8,6 +8,7 @@ Dashboard internal untuk memprioritaskan conversation akuisisi dari hasil analis
 - daftar conversation dengan sorting prioritas lalu waktu pesan terbaru;
 - pencarian nama/ID serta filter status, priority, stage, pengirim, dan rentang tanggal mulai conversation (`created_at`);
 - update status dengan konfirmasi untuk `converted`, `closed`, dan `not_a_lead`;
+- perubahan status manual mengirim webhook ke n8n setelah tersimpan;
 - endpoint ingest n8n dengan Bearer token, validasi Zod, dan upsert idempoten;
 - status manual tidak ditimpa sinkronisasi; `actioned` kembali ke `pending` hanya untuk pesan customer yang lebih baru;
 - login internal berbasis environment variable dan signed HTTP-only cookie;
@@ -48,6 +49,7 @@ npm run db:seed
 | `DASHBOARD_PASSWORD` | Password login internal |
 | `SESSION_SECRET` | Secret minimal 32 karakter untuk menandatangani cookie |
 | `N8N_INGEST_TOKEN` | Token terpisah untuk request ingest n8n |
+| `N8N_STATUS_WEBHOOK_URL` | URL webhook n8n untuk menerima perubahan status dari dashboard |
 
 Jangan commit file `.env` atau memasukkan token ingest ke kode/browser.
 
@@ -89,6 +91,28 @@ Respons berhasil berisi `action: "created"` atau `action: "updated"`. Payload ti
 
 `created_at` adalah waktu conversation pertama dimulai dan menjadi dasar filter tanggal serta metrik. `last_message_at` tetap dipakai untuk aktivitas terakhir, urutan antrean, dan aturan pesan customer terbaru. Saat sinkronisasi ulang, aplikasi mempertahankan nilai `created_at` yang paling awal.
 
+### Webhook perubahan status
+
+Siapkan Webhook node di n8n dengan method `POST`, lalu isi URL production-nya pada `N8N_STATUS_WEBHOOK_URL` di environment aplikasi. Setiap perubahan status melalui dropdown dashboard akan mengirim JSON setelah status berhasil disimpan. Contoh payload:
+
+```json
+{
+  "event": "conversation.status_changed",
+  "occurred_at": "2026-09-30T08:00:00.000Z",
+  "id": "uuid-lead-di-database",
+  "conversation_id": "928391",
+  "conversation_url": "https://omnichannel.example.com/conversations/928391",
+  "contact_name": "Aisyah",
+  "contact_phone": "+62 811 0000 1001",
+  "previous_status": "pending",
+  "previous_status_label": "Pending",
+  "status": "converted",
+  "status_label": "Deal"
+}
+```
+
+Kode status tetap memakai nilai internal (`converted` untuk Deal, `closed` untuk Lost). Permintaan webhook dibatasi 5 detik. Jika URL belum diatur atau n8n gagal menerima request, status tetap tersimpan dan dashboard menampilkan peringatan. Tidak ada pengiriman ulang otomatis.
+
 ### Konfigurasi HTTP Request node n8n
 
 1. Method: `POST`
@@ -119,7 +143,7 @@ Konfigurasi App yang dibutuhkan:
 - Source: GitHub, repository `7vilanata/cs-syarihub`, branch `main`, build path `/`;
 - Builder: Dockerfile, path `Dockerfile`;
 - Target port domain: `3000`;
-- Environment: `DATABASE_URL`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`, `SESSION_SECRET`, dan `N8N_INGEST_TOKEN`;
+- Environment: `DATABASE_URL`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`, `SESSION_SECRET`, `N8N_INGEST_TOKEN`, dan `N8N_STATUS_WEBHOOK_URL`;
 - Health/runtime process: container menjalankan `node scripts/migrate.mjs && node server.js`.
 
 Untuk memuat data contoh pertama kali, buka Shell App setelah deployment dan jalankan:

@@ -7,6 +7,7 @@ import { ArrowUpRight, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Cir
 import { toast } from "sonner";
 import type { Conversation, ConversationStatus, LastMessageSender, Priority } from "@/db/schema";
 import { calculateConversionRate, isWithinDateRange } from "@/lib/metrics";
+import { statusLabels } from "@/lib/status-labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const labels = {
-  status: { pending: "Pending", actioned: "Ditindaklanjuti", converted: "Converted", closed: "Closed", not_a_lead: "Not a Lead" },
+  status: statusLabels,
   priority: { urgent: "Urgent", high: "High", medium: "Medium", low: "Low" },
   stage: { new: "Baru", interested: "Tertarik", considering: "Mempertimbangkan", ready_to_pay: "Siap bayar" },
   sender: { customer: "Customer", cs: "CS", system: "Sistem" },
@@ -114,10 +115,12 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
     setSavingId(conversation.id);
     try {
       const response = await fetch(`/api/conversations/${conversation.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: nextStatus }) });
-      const body = await response.json() as { error?: string };
+      const body = await response.json() as { error?: string; webhook?: "sent" | "not_configured" | "failed" | null };
       if (!response.ok) throw new Error(body.error ?? "Gagal menyimpan status.");
       setConversations((current) => current.map((item) => item.id === conversation.id ? { ...item, status: nextStatus } : item));
-      toast.success(`Status ${conversation.contact_name ?? conversation.conversation_id} diperbarui.`);
+      if (body.webhook === "failed") toast.warning("Status tersimpan, tetapi webhook n8n gagal dikirim.");
+      else if (body.webhook === "not_configured") toast.warning("Status tersimpan, tetapi URL webhook n8n belum diatur.");
+      else toast.success(`Status ${conversation.contact_name ?? conversation.conversation_id} diperbarui.`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Status gagal disimpan."); }
     finally { setSavingId(null); setConfirmation(null); }
   }
@@ -135,7 +138,7 @@ export function Dashboard({ initialConversations }: { initialConversations: Conv
 
     <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <section aria-label="Ringkasan performa" className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
-        <MetricCard label="Total" value={metrics.total} active={activeMetric === "all"} onClick={() => applyMetricFilter("all")} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} active={activeMetric === "pending"} onClick={() => applyMetricFilter("pending")} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} active={activeMetric === "actioned"} onClick={() => applyMetricFilter("actioned")} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Converted" value={metrics.converted} active={activeMetric === "converted"} onClick={() => applyMetricFilter("converted")} icon={<Sparkles className="size-5" />} /><MetricCard label="Closed" value={metrics.closed} active={activeMetric === "closed"} onClick={() => applyMetricFilter("closed")} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} active={activeMetric === "not_a_lead"} onClick={() => applyMetricFilter("not_a_lead")} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Klik untuk lihat Converted" tone="green" active={activeMetric === "conversion_rate"} onClick={() => applyMetricFilter("converted", "conversion_rate")} icon={<ArrowUpRight className="size-5" />} />
+        <MetricCard label="Total" value={metrics.total} active={activeMetric === "all"} onClick={() => applyMetricFilter("all")} icon={<UsersRound className="size-5" />} /><MetricCard label="Pending" value={metrics.pending} active={activeMetric === "pending"} onClick={() => applyMetricFilter("pending")} icon={<CircleDashed className="size-5" />} /><MetricCard label="Ditindaklanjuti" value={metrics.actioned} active={activeMetric === "actioned"} onClick={() => applyMetricFilter("actioned")} icon={<CheckCircle2 className="size-5" />} /><MetricCard label="Deal" value={metrics.converted} active={activeMetric === "converted"} onClick={() => applyMetricFilter("converted")} icon={<Sparkles className="size-5" />} /><MetricCard label="Lost" value={metrics.closed} active={activeMetric === "closed"} onClick={() => applyMetricFilter("closed")} icon={<ChevronDown className="size-5" />} /><MetricCard label="Not a Lead" value={metrics.notALead} active={activeMetric === "not_a_lead"} onClick={() => applyMetricFilter("not_a_lead")} icon={<UserX className="size-5" />} /><MetricCard label="Conversion rate" value={`${metrics.rate}%`} note="Klik untuk lihat Deal" tone="green" active={activeMetric === "conversion_rate"} onClick={() => applyMetricFilter("converted", "conversion_rate")} icon={<ArrowUpRight className="size-5" />} />
       </section>
 
       <section ref={listRef} className="mt-6 scroll-mt-4 rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgb(15_23_42/5%)]">
